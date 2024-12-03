@@ -1,0 +1,136 @@
+
+
+drop TABLE patient;
+drop TABLE doctor;
+drop TABLE medication;
+drop TABLE pharmacist;
+drop TABLE prescription;
+
+CREATE TABLE patient (
+    patient_ID INT PRIMARY KEY,
+    name_p NVARCHAR(50),
+    dob DATE,
+    address_p NVARCHAR(MAX)
+);
+
+CREATE TABLE doctor (
+    doctor_ID INT PRIMARY KEY,
+    name_doc NVARCHAR(MAX),
+    specialty NVARCHAR(50)
+);
+
+CREATE TABLE medication (
+    ndc NVARCHAR(12) PRIMARY KEY, -- National Drug Code
+    drug_name NVARCHAR(100),
+    strength NVARCHAR(50)
+);
+
+CREATE TABLE pharmacist (
+    pharmacist_ID INT PRIMARY KEY,
+    name_phar NVARCHAR(50),
+    license_num NVARCHAR(12)
+);
+
+CREATE TABLE prescription (
+    prescription_id INT PRIMARY KEY,
+    patient_ID INT,
+    doctor_ID INT,
+    ndc NVARCHAR(12),
+    pharmacist_ID INT,
+    date_issued DATE,
+    expiration_date DATE,
+    FOREIGN KEY (patient_ID) REFERENCES patient(patient_ID),
+    FOREIGN KEY (doctor_ID) REFERENCES doctor(doctor_ID),
+    FOREIGN KEY (ndc) REFERENCES medication(ndc),
+    FOREIGN KEY (pharmacist_ID) REFERENCES pharmacist(pharmacist_ID)
+);
+
+INSERT INTO medication (ndc, drug_name, strength)
+VALUES 
+    ('123456789012', 'Amoxicillin', '500 mg'),
+    ('234567890123', 'Ibuprofen', '200 mg'),
+    ('345678901234', 'Atorvastatin', '10 mg'),
+    ('500902389000', 'Aspirin', '300 mg'),
+    ('004879501250', 'Albuterol', '2.5 mg');
+
+INSERT INTO doctor (doctor_ID, name_doc, specialty)
+VALUES 
+    (3141984, 'Mark Zuckingburg', 'Dermatologist'),
+    (6281971, 'Yi Long Ma', 'Nuclear Medicine'),
+    (1121964, 'Jeffrey Bezos', 'Neurologist');
+
+INSERT INTO patient (patient_ID, name_p, dob, address_p)
+VALUES 
+    (2003, 'Albert Brooks', '1947-07-22', 'P Sherman 42 Wallaby Way, Sydney'),
+    (2018, 'Miles Morales', '2002-12-06', 'Earth-1610'),
+    (1985, 'Mike Tyson', '1966-06-30', '422 Main St Floor 3, Catskill, NY'),
+    (2009, 'Finn Mertens', '2365-04-14', 'Land of Ooo');
+
+INSERT INTO pharmacist (pharmacist_ID, name_phar, license_num)
+VALUES 
+    (813201077, 'Mathew Patel', '051241588');
+
+INSERT INTO prescription (prescription_id, patient_ID, doctor_ID, ndc, pharmacist_ID, date_issued, expiration_date)
+VALUES 
+    (1, 2003, 3141984, '123456789012', 813201077, '2024-01-01', '2024-12-31'),
+    (2, 2018, 6281971, '234567890123', 813201077, '2024-02-01', '2024-12-31'),
+    (3, 1985, 1121964, '345678901234', 813201077, '2024-03-01', '2024-12-31');
+
+--View: Patient Prescriptions
+CREATE VIEW PatientPrescriptions AS
+SELECT 
+    p.name_p AS PatientName,
+    r.date_issued,
+    r.expiration_date,
+    m.drug_name,
+    d.name_doc AS PrescribingDoctor
+FROM 
+    prescription r
+JOIN 
+    patient p ON r.patient_ID = p.patient_ID
+JOIN 
+    medication m ON r.ndc = m.ndc
+JOIN 
+    doctor d ON r.doctor_ID = d.doctor_ID;
+
+-- View: Doctor's Prescriptions
+CREATE VIEW DoctorPrescriptions AS
+SELECT 
+    d.name_doc AS DoctorName,
+    COUNT(r.prescription_id) AS TotalPrescriptions
+FROM 
+    prescription r
+JOIN 
+    doctor d ON r.doctor_ID = d.doctor_ID
+GROUP BY 
+    d.name_doc;
+
+-- View: Medications Dispensed by Pharmacist
+CREATE VIEW MedicationsByPharmacist AS
+SELECT 
+    ph.name_phar AS PharmacistName,
+    m.drug_name,
+    COUNT(r.prescription_id) AS TimesDispensed
+FROM 
+    prescription r
+JOIN 
+    pharmacist ph ON r.pharmacist_ID = ph.pharmacist_ID
+JOIN 
+    medication m ON r.ndc = m.ndc
+GROUP BY 
+    ph.name_phar, m.drug_name;
+
+-- View: Expiring Prescriptions
+CREATE VIEW ExpiringPrescriptions AS
+SELECT 
+    p.name_p AS PatientName,
+    m.drug_name,
+    r.expiration_date
+FROM 
+    prescription r
+JOIN 
+    patient p ON r.patient_ID = p.patient_ID
+JOIN 
+    medication m ON r.ndc = m.ndc
+WHERE 
+    r.expiration_date < GETDATE() + 30; -- Expiring in the next 30 days
